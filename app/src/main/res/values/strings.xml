@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">MyPong-client</string>
+    <string name="btn_login_text">Login</string>
+    <string name="btn_register_text">Register</string>
+    <string name="edt_username_hint">Username</string>
+    <string name="edt_password_hint">Password</string>
+</resources>
