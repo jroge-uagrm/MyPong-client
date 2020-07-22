@@ -1,18 +1,14 @@
 package com.jroget.mypong_client.my_classes.principals
 
+import android.app.Application
 import android.util.Log
 import com.google.gson.Gson
 import com.jroget.mypong_client.events.ClientMainThreadEvents
-import com.jroget.mypong_client.my_classes.auxiliaries.ContainerObject
-import com.jroget.mypong_client.my_classes.auxiliaries.GameActions
-import com.jroget.mypong_client.my_classes.auxiliaries.Protocol
-import com.jroget.mypong_client.my_classes.auxiliaries.User
+import com.jroget.mypong_client.my_classes.auxiliaries.*
+import java.io.Serializable
 import java.util.*
 
-
-class GameClient(
-    private val gameActions: GameActions
-) : ClientMainThreadEvents {
+class GameClient : ClientMainThreadEvents, Serializable, Application() {
 
     private val host = "192.168.1.117"
     private val port = 32000
@@ -24,7 +20,30 @@ class GameClient(
     private var username: String? = null
     private var password: String? = null
     private var action: String? = null
-    private var myRoomId: String? = null
+    private var myMatchId: String? = null
+
+    companion object {
+        private lateinit var gameClient: GameClient
+        private lateinit var gameActions: GameActions
+        private var invitations: LinkedList<User>? = LinkedList()
+
+        fun getInstance(newGameActions: GameActions): GameClient {
+            gameActions = newGameActions
+            try {
+                var x: GameClient = gameClient
+            } catch (e: Exception) {
+                gameClient = GameClient()
+                invitations = LinkedList()
+            } finally {
+                return gameClient
+            }
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        gameClient = this
+    }
 
     fun getUsername(): String? {
         return username
@@ -35,11 +54,15 @@ class GameClient(
     }
 
     fun isInRoom(): Boolean {
-        return myRoomId != ""
+        return myMatchId != ""
     }
 
     fun getUserList(): LinkedList<User>? {
         return playerList
+    }
+
+    fun getInvitations(): LinkedList<User>? {
+        return invitations
     }
 
     fun getPartnerList(): LinkedList<User>? {
@@ -51,7 +74,7 @@ class GameClient(
     }
 
     fun getRoomId(): String? {
-        return myRoomId
+        return myMatchId
     }
 
     fun sending(): Boolean {
@@ -79,16 +102,32 @@ class GameClient(
     }
 
     fun createRoom() {
-        myRoomId = "waiting..."
-        send(Protocol("createRoom", ""))
+        myMatchId = "waiting..."
+        send(Protocol("createRoom", "Esto no cirbe"))
     }
 
-    fun leaveRoom() {
+    fun leaveMatch() {
         send(Protocol("leaveRoom", ""))
     }
 
     fun sendInvitation(playerIndex: Int) {
         send(Protocol("invite", playerList!![playerIndex].key.toString()))
+    }
+
+    fun acceptInvitation(userKey: String) {
+        deleteInvitation(userKey)
+        send(Protocol("acceptInvitation", userKey))
+        gameActions.refresh()
+    }
+
+    fun rejectInvitation(userKey: String) {
+        deleteInvitation(userKey)
+        send(Protocol("rejectInvitation", userKey))
+        gameActions.refresh()
+    }
+
+    fun deleteInvitation(userKey: String) {
+        invitations!!.remove(getInvitationByKey(userKey))
     }
 
     override fun onClientConnectionLost() {
@@ -121,12 +160,36 @@ class GameClient(
                 "leftRoom" -> changePlayerInRoom(protocol.content)
                 "errorRoom" -> gameActions.showMessageDialog(protocol.content)
                 "emptyRoom" -> {
-                    myRoomId = ""
+                    myMatchId = ""
                     gameActions.showMessageDialog(protocol.content)
                 }
                 "deleteRoom" -> {
-                    myRoomId = ""
+                    myMatchId = ""
                     gameActions.refresh()
+                }
+                "ballMoving" -> {
+                    gameActions.catchBall(
+                        gson!!.fromJson(
+                            protocol.content,
+                            BallConverted::class.java
+                        )
+                    )
+                }
+                "scoreboard" -> {
+                    gameActions.refreshScoreboard(
+                        gson!!.fromJson(
+                            protocol.content,
+                            Scoreboard::class.java
+                        )
+                    )
+                }
+                "winner" -> {
+                    gameActions.showWinner(
+                        gson!!.fromJson(
+                            protocol.content,
+                            User::class.java
+                        )
+                    )
                 }
             }
         } else {
@@ -137,7 +200,7 @@ class GameClient(
 
     override fun onClientDisconnected() {
         username = "Client";
-        myRoomId = "";
+        myMatchId = "";
         action = "";
         gameActions.refresh();
     }
@@ -152,19 +215,9 @@ class GameClient(
 
     private fun sendCredentials() {
         if (action.equals("login")) {
-            send(
-                Protocol(
-                    "login",
-                    gson!!.toJson(User(username!!, password!!))
-                )
-            )
+            send(Protocol("login", gson!!.toJson(User(username!!, password!!))))
         } else {
-            send(
-                Protocol(
-                    "register",
-                    gson!!.toJson(User(username!!, password!!))
-                )
-            )
+            send(Protocol("register", gson!!.toJson(User(username!!, password!!))))
         }
     }
 
@@ -189,7 +242,7 @@ class GameClient(
                     info,
                     Array<User>::class.java
                 )
-            myRoomId = newUserList[0].roomId
+            myMatchId = newUserList[0].matchId
             gameActions.showMessageDialog("Welcome to room")
             partnerList = LinkedList()
             for (i in newUserList.indices) {
@@ -201,8 +254,8 @@ class GameClient(
                     info,
                     User::class.java
                 )
-            getUserByKey(user.key)!!.roomId = user.roomId
-            if (user.roomId == myRoomId) {
+            getUserByKey(user.key)!!.matchId = user.matchId
+            if (user.matchId == myMatchId) {
                 partnerList!!.add(user)
                 gameActions.showMessageDialog(user.username + " has joined to room")
             }
@@ -252,14 +305,8 @@ class GameClient(
                 stringUser,
                 User::class.java
             )
-        val opt =
-            gameActions.showConfirmDialog(userOwner.username + " has invited you to join a room")
-        if (opt == 0) {
-            myRoomId = userOwner.roomId
-            send(Protocol("acceptInvitation", userOwner.key.toString()))
-        } else {
-            send(Protocol("rejectInvitation", userOwner.key.toString()))
-        }
+        invitations!!.add(userOwner)
+        gameActions.showMessageDialog("You have a new invitation!!")
     }
 
     private fun changePlayerInRoom(stringUser: String) {
@@ -269,7 +316,7 @@ class GameClient(
                 User::class.java
             )
         if (userLeftRoom.key == myKey) {
-            myRoomId = ""
+            myMatchId = ""
             partnerList = LinkedList()
             gameActions.showMessageDialog("You have left the room")
         } else {
@@ -277,11 +324,30 @@ class GameClient(
                 println(partnerList!!.size)
                 gameActions.showMessageDialog(userLeftRoom.username + " has left the room")
             }
-            getUserByKey(userLeftRoom.key)!!.roomId = ""
+            getUserByKey(userLeftRoom.key)!!.matchId = ""
         }
     }
 
+    fun sendBall(force: Int, angle: Int, y: Int) {
+        send(
+            Protocol(
+                "ballMoving",
+                gson!!.toJson(BallConverted(force, angle, y))
+            )
+        )
+    }
+
+    fun sendBallFailed() {
+        send(
+            Protocol(
+                "ballFailed",
+                ""
+            )
+        )
+    }
+
     private fun send(protocol: Protocol) {
+        //Send usado por el login
         client!!.send(
             ContainerObject(
                 myKey!!,
@@ -293,6 +359,15 @@ class GameClient(
 
     private fun getUserByKey(key: String?): User? {
         for (user in playerList!!) {
+            if (user.key == key) {
+                return user
+            }
+        }
+        return null
+    }
+
+    private fun getInvitationByKey(key: String?): User? {
+        for (user in invitations!!) {
             if (user.key == key) {
                 return user
             }

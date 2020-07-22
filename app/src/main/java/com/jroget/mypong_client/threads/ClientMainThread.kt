@@ -1,5 +1,6 @@
 package com.jroget.mypong_client.threads
 
+import android.os.NetworkOnMainThreadException
 import android.util.Log
 import com.google.gson.Gson
 import com.jroget.mypong_client.events.ClientMainThreadEvents
@@ -15,7 +16,7 @@ class ClientMainThread(
     private val host: String,
     private val port: Int,
     private val events: ClientMainThreadEvents
-) : Runnable {
+) : Runnable, Serializable {
 
     private var clientSocket: Socket? = null
     private var printerWriterOUT: PrintWriter? = null
@@ -34,15 +35,15 @@ class ClientMainThread(
         try {
             while (connected) {
                 try {
-                    message = bufferedReaderIN!!.readLine()
+                    message = bufferedReaderIN!!.readLine();
                 } catch (e: Exception) {
                     message = ""
                 }
                 if (message.isEmpty()) {
                     connected = false
-                    Log.d("MESSAGE","EMPTY")
+                    Log.d("MESSAGE", "EMPTY")
                 } else {
-                    internalLog("Received:" + message)
+                    internalLog("Received:$message")
                     events.onClientNewResponse(message)
                 }
             }
@@ -56,13 +57,12 @@ class ClientMainThread(
     }
 
     fun sendMessage(objec: ContainerObject) {
+        //Usado por el login
         if (connectionAttempts == 0) {
             val jsonObject: String = gson.toJson(objec)
+            internalLog("Trying:$jsonObject")
             printerWriterOUT!!.println(jsonObject)
             internalLog("Sent:$jsonObject")
-
-            val writer: OutputStream = clientSocket!!.getOutputStream()
-            writer.write((jsonObject + '\n').toByteArray(Charset.defaultCharset()))
         }
     }
 
@@ -90,7 +90,7 @@ class ClientMainThread(
         connected = true
         connectionAttempts = 0
         try {
-            printerWriterOUT = PrintWriter(clientSocket!!.getOutputStream())
+            printerWriterOUT = PrintWriter(clientSocket!!.getOutputStream(), true)
             bufferedReaderIN = BufferedReader(InputStreamReader(clientSocket!!.getInputStream()))
         } catch (ex: IOException) {
             internalLog("ERROR(999):" + ex.message)
@@ -101,7 +101,7 @@ class ClientMainThread(
         if (tryingConnect) {
             connectionAttempts++
             try {
-                clientSocket = Socket("192.168.1.117", 32000)
+                clientSocket = Socket(host, port)
                 startAll()
                 internalLog("Connected.")
                 events.onClientConnected()

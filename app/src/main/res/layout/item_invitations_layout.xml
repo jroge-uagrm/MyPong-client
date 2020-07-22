@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/txv_username_invitations"
+        android:layout_width="236dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="false"
+        android:layout_toStartOf="@+id/btn_status_user_list"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/btn_accept_invitation"
+        android:layout_width="72dp"
+        android:layout_height="34dp"
+        android:layout_alignParentTop="false"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="1dp"
+        android:background="@android:color/holo_green_light"
+        android:text="@string/btn_accept_invitation_txt" />
+
+    <Button
+        android:id="@+id/btn_reject_invitation"
+        android:layout_width="72dp"
+        android:layout_height="34dp"
+        android:layout_alignParentTop="false"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="88dp"
+        android:background="@android:color/holo_red_light"
+        android:text="@string/btn_reject_invitation_txt" />
+
+
+</RelativeLayout>

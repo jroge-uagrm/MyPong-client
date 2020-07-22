@@ -1,6 +1,8 @@
 package com.jroget.mypong_client.events
 
-interface ClientMainThreadEvents {
+import java.io.Serializable
+
+interface ClientMainThreadEvents : Serializable {
 
     fun onClientConnectionLost()
 
