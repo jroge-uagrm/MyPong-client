@@ -150,9 +150,6 @@ class GameActivity : AppCompatActivity(), GameActions, BallActions {
         override fun onSensorChanged(event: SensorEvent) {
             if (event.sensor.type == angleType) {
                 gyroscopeZAxis = event.values[2]
-                x!!.text = "x:" + String.format("%.2f", event.values[0])
-                y!!.text = "y:" + String.format("%.2f", event.values[1])
-                z!!.text = "z:" + String.format("%.2f", event.values[2])
                 if (isPressing) {
                     gyroscopeValueList!!.add((gyroscopeZAxis * 100).toInt())
                 }
@@ -200,12 +197,10 @@ class GameActivity : AppCompatActivity(), GameActions, BallActions {
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if ((keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
             if (inGame!!) {
-//                isPressing = false;
-//                showValues();
+//                isPressing = false
+//                sendValues()
                 showMessageDialog("You can do it!!")
                 gameView.setBallToStart()
-//                gameView.setBallInGame(Ball(100f))
-//                gameView.setActionInGame(-10, 10, true)
             }
         }
         if ((keyCode == KeyEvent.KEYCODE_VOLUME_UP)) {
@@ -216,11 +211,13 @@ class GameActivity : AppCompatActivity(), GameActions, BallActions {
         return false
     }
 
-    private fun showValues() {
-        ForceValue!!.text = Integer.toString(getAccelerometerValuesAverage())
-        AngleValue!!.text = Integer.toString(getDifferenceOfTheLastAndFirstGyroscopeValues()) + "°"
+    private fun sendValues() {
+        var force = getAccelerometerValuesAverage()
+        var angle = getDifferenceOfTheLastAndFirstGyroscopeValues()
         accelerometerValueList = LinkedList()
         gyroscopeValueList = LinkedList()
+        gameView.setActionInGame(angle, force, true)
+
     }
 
     private fun getAccelerometerValuesAverage(): Int {
